@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Cosmonaute
+Comment=libcosmic documentation viewer, because webdocs for large rust projects ist sloww.
+Type=Application
+Icon=com.github.genericconfluent.cosmonaute
+Exec=cosmonaute %F
+Terminal=false
+StartupNotify=true
+Categories=COSMIC
+Keywords=COSMIC
+MimeType=
