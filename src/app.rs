@@ -11,9 +11,44 @@ use cosmic::widget::{self, icon, menu, nav_bar};
 use cosmic::{cosmic_theme, theme};
 use futures_util::SinkExt;
 use std::collections::HashMap;
+use std::path::PathBuf;
+use crate::view::{View, docs, home};
 
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 const APP_ICON: &[u8] = include_bytes!("../resources/icons/hicolor/scalable/apps/icon.svg");
+
+pub fn icondata_svg(icon: icondata::Icon) -> widget::icon::Handle {
+    let svg = if let Some(view_box) = icon.view_box {
+        format!(
+            r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="{}">{}</svg>"#,
+            view_box,
+            icon.data
+        )
+    } else {
+        format!(
+            r#"<svg xmlns="http://www.w3.org/2000/svg">{}</svg>"#,
+            icon.data
+        )
+    };
+    widget::icon::from_svg_bytes(svg.into_bytes())
+}
+
+// Action is covariant over T for our message type. But we can't do a From
+// impl since cosmic::Action doesn't belong to us.
+fn map_action<Type, Subtype: From<Type>>(value: cosmic::Action<Type>) -> cosmic::Action<Subtype> {
+    match value {
+        cosmic::Action::App(inner) => cosmic::Action::App(Subtype::from(inner)),
+        cosmic::Action::Cosmic(cosmic_message) => cosmic::Action::Cosmic(cosmic_message),
+        cosmic::Action::DbusActivation(dbus_message) => cosmic::Action::DbusActivation(dbus_message),
+        cosmic::Action::None => cosmic::Action::None,
+    }
+}
+
+pub struct DocSet {
+    name: String,
+    version: String,
+    language: String,
+}
 
 /// The application model stores app-specific state used to describe its interface and
 /// drive its logic.
@@ -26,6 +61,13 @@ pub struct AppModel {
     nav: nav_bar::Model,
     /// Key bindings for the application's menu bar.
     key_binds: HashMap<menu::KeyBind, MenuAction>,
+    /// List of the documentation sets available in the application.
+    /// Ordered alphabetically by name.
+    docsets: Vec<DocSet>,
+    /// Icon handles
+    icon_cache: HashMap<std::any::TypeId, widget::icon::Handle>,
+    /// Other COSMIC applications seem to call this Page
+    view: View,
     // Configuration data that persists between application runs.
     config: Config,
 }
@@ -38,6 +80,8 @@ pub enum Message {
     ToggleContextPage(ContextPage),
     UpdateConfig(Config),
     LaunchUrl(String),
+    Home(home::Message),
+    Docs(docs::Message),
 }
 
 /// Create a COSMIC application from the app model
@@ -92,6 +136,9 @@ impl cosmic::Application for AppModel {
             context_page: ContextPage::default(),
             nav,
             key_binds: HashMap::new(),
+            docsets: vec![],
+            icon_cache: HashMap::new(),
+            view: View::Home(home::ViewModel::default()),
             // Optional configuration file for an application.
             config: cosmic_config::Config::new(Self::APP_ID, Config::VERSION)
                 .map(|context| match Config::get_entry(&context) {
@@ -151,13 +198,10 @@ impl cosmic::Application for AppModel {
     /// Application events will be processed through the view. Any messages emitted by
     /// events received by widgets will be passed to the update method.
     fn view(&self) -> Element<Self::Message> {
-        widget::text::title1(fl!("welcome"))
-            .apply(widget::container)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .align_x(Horizontal::Center)
-            .align_y(Vertical::Center)
-            .into()
+        match self.view {
+            View::Home(ref model) => model.view().map(Message::Home),
+            View::Docs(ref model) => model.view().map(Message::Docs),
+        }
     }
 
     /// Register subscriptions for this application.
@@ -226,8 +270,34 @@ impl cosmic::Application for AppModel {
                     eprintln!("failed to open {url:?}: {err}");
                 }
             },
+
+            // CURRENT: Writing boilerplate to pass massages between the two distinctct views:
+            // Home and Docs. Maybe I want to just pass around the high level cosmic::Action.
+            Message::Docs(message) => {
+                if let View::Docs(ref mut model) = self.view {
+                    return model.update(message).map(map_action);
+                }
+            }
+
+            Message::Home(message) => {
+                if let View::Home(ref mut model) = self.view {
+                    return model.update(message).map(map_action);
+                }
+            }
+
+            _ => {}
         }
         Task::none()
+    }
+
+    fn view_window(&self, id: cosmic::iced::window::Id) -> Element<Self::Message> {
+        widget::text::title1("This is another window")
+            .apply(widget::container)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .align_x(Horizontal::Center)
+            .align_y(Vertical::Center)
+            .into()
     }
 
     /// Called when a nav item is selected.

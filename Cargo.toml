@@ -15,6 +15,7 @@ i18n-embed-fl = "0.9.2"
 open = "5.3.0"
 rust-embed = "8.5.0"
 tokio = { version = "1.41.0", features = ["full"] }
+icondata = { version = "0.6.0", default-features = false, features = ["simple-icons", "ant-design-icons"] }
 
 [dependencies.i18n-embed]
 version = "0.15"
@@ -40,6 +41,9 @@ features = [
     "wayland",
     # GPU-accelerated rendering
     "wgpu",
+    # Markdown
+    "highlighter",
+    "markdown"
 ]
 
 # Uncomment to test a locally-cloned libcosmic
