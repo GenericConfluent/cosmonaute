@@ -1,7 +1,7 @@
-pub mod home;
 pub mod docs;
+pub mod home;
 
-pub enum View {
+pub enum Page {
     Home(home::ViewModel),
     Docs(docs::ViewModel),
 }

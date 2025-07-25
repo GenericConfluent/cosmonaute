@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 
 mod app;
-mod view;
 mod config;
+mod docset;
 mod i18n;
+mod page;
 
 fn main() -> cosmic::iced::Result {
     // Get the system's preferred languages.
@@ -13,11 +14,13 @@ fn main() -> cosmic::iced::Result {
     i18n::init(&requested_languages);
 
     // Settings for configuring the application window and iced runtime.
-    let settings = cosmic::app::Settings::default().size_limits(
-        cosmic::iced::Limits::NONE
-            .min_width(360.0)
-            .min_height(180.0),
-    );
+    let settings = cosmic::app::Settings::default()
+        .size_limits(
+            cosmic::iced::Limits::NONE
+                .min_width(360.0)
+                .min_height(180.0),
+        )
+        .debug(true);
 
     // Starts the application's event loop with `()` as the application's flags.
     cosmic::app::run::<app::AppModel>(settings, ())

@@ -7,14 +7,10 @@ use cosmic::prelude::*;
 use cosmic::widget::{self, icon, menu, nav_bar};
 use cosmic::{cosmic_theme, theme};
 
-pub struct ViewModel {
-
-}
+pub struct ViewModel {}
 
 #[derive(Debug, Clone)]
-pub enum Message {
-
-}
+pub enum Message {}
 
 impl From<Message> for crate::app::Message {
     fn from(value: Message) -> Self {
@@ -25,11 +21,10 @@ impl From<Message> for crate::app::Message {
 impl ViewModel {
     pub fn view(&self) -> Element<Message> {
         // Placeholder for the view implementation
-        widget::text::title1("Welcome to Cosmonaute")
-            .into()
+        widget::text::title1("Welcome to Cosmonaute").into()
     }
 
-    pub fn update(&mut self, message: Message) -> Task<cosmic::Action<Message>>{
+    pub fn update(&mut self, message: Message) -> Task<cosmic::Action<Message>> {
         Task::none()
     }
 }

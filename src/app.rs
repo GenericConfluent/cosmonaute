@@ -2,6 +2,7 @@
 
 use crate::config::Config;
 use crate::fl;
+use crate::page::{docs, home, Page};
 use cosmic::app::context_drawer;
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::iced::alignment::{Horizontal, Vertical};
@@ -12,7 +13,6 @@ use cosmic::{cosmic_theme, theme};
 use futures_util::SinkExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use crate::view::{View, docs, home};
 
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 const APP_ICON: &[u8] = include_bytes!("../resources/icons/hicolor/scalable/apps/icon.svg");
@@ -21,8 +21,7 @@ pub fn icondata_svg(icon: icondata::Icon) -> widget::icon::Handle {
     let svg = if let Some(view_box) = icon.view_box {
         format!(
             r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="{}">{}</svg>"#,
-            view_box,
-            icon.data
+            view_box, icon.data
         )
     } else {
         format!(
@@ -30,24 +29,22 @@ pub fn icondata_svg(icon: icondata::Icon) -> widget::icon::Handle {
             icon.data
         )
     };
-    widget::icon::from_svg_bytes(svg.into_bytes())
+    widget::icon::from_svg_bytes(svg.into_bytes()).symbolic(true)
 }
 
 // Action is covariant over T for our message type. But we can't do a From
 // impl since cosmic::Action doesn't belong to us.
-fn map_action<Type, Subtype: From<Type>>(value: cosmic::Action<Type>) -> cosmic::Action<Subtype> {
+pub fn map_action<Type, Subtype: From<Type>>(
+    value: cosmic::Action<Type>,
+) -> cosmic::Action<Subtype> {
     match value {
         cosmic::Action::App(inner) => cosmic::Action::App(Subtype::from(inner)),
         cosmic::Action::Cosmic(cosmic_message) => cosmic::Action::Cosmic(cosmic_message),
-        cosmic::Action::DbusActivation(dbus_message) => cosmic::Action::DbusActivation(dbus_message),
+        cosmic::Action::DbusActivation(dbus_message) => {
+            cosmic::Action::DbusActivation(dbus_message)
+        }
         cosmic::Action::None => cosmic::Action::None,
     }
-}
-
-pub struct DocSet {
-    name: String,
-    version: String,
-    language: String,
 }
 
 /// The application model stores app-specific state used to describe its interface and
@@ -58,16 +55,16 @@ pub struct AppModel {
     /// Display a context drawer with the designated page if defined.
     context_page: ContextPage,
     /// Contains items assigned to the nav bar panel.
-    nav: nav_bar::Model,
+    // nav: nav_bar::Model,
     /// Key bindings for the application's menu bar.
     key_binds: HashMap<menu::KeyBind, MenuAction>,
     /// List of the documentation sets available in the application.
     /// Ordered alphabetically by name.
-    docsets: Vec<DocSet>,
+    docsets: Vec<crate::docset::DocSetHandle>,
     /// Icon handles
     icon_cache: HashMap<std::any::TypeId, widget::icon::Handle>,
     /// Other COSMIC applications seem to call this Page
-    view: View,
+    view: Page,
     // Configuration data that persists between application runs.
     config: Config,
 }
@@ -108,37 +105,19 @@ impl cosmic::Application for AppModel {
 
     /// Initializes the application with any given flags and startup commands.
     fn init(
-        core: cosmic::Core,
+        mut core: cosmic::Core,
         _flags: Self::Flags,
     ) -> (Self, Task<cosmic::Action<Self::Message>>) {
-        // Create a nav bar with three page items.
-        let mut nav = nav_bar::Model::default();
-
-        nav.insert()
-            .text(fl!("page-id", num = 1))
-            .data::<Page>(Page::Page1)
-            .icon(icon::from_name("applications-science-symbolic"))
-            .activate();
-
-        nav.insert()
-            .text(fl!("page-id", num = 2))
-            .data::<Page>(Page::Page2)
-            .icon(icon::from_name("applications-system-symbolic"));
-
-        nav.insert()
-            .text(fl!("page-id", num = 3))
-            .data::<Page>(Page::Page3)
-            .icon(icon::from_name("applications-games-symbolic"));
-
         // Construct the app model with the runtime's core.
+        core.window.show_headerbar = false;
+
         let mut app = AppModel {
             core,
             context_page: ContextPage::default(),
-            nav,
             key_binds: HashMap::new(),
             docsets: vec![],
             icon_cache: HashMap::new(),
-            view: View::Home(home::ViewModel::default()),
+            view: Page::Home(home::ViewModel::default()),
             // Optional configuration file for an application.
             config: cosmic_config::Config::new(Self::APP_ID, Config::VERSION)
                 .map(|context| match Config::get_entry(&context) {
@@ -162,20 +141,12 @@ impl cosmic::Application for AppModel {
 
     /// Elements to pack at the start of the header bar.
     fn header_start(&self) -> Vec<Element<Self::Message>> {
-        let menu_bar = menu::bar(vec![menu::Tree::with_children(
-            menu::root(fl!("view")).apply(Element::from),
-            menu::items(
-                &self.key_binds,
-                vec![menu::Item::Button(fl!("about"), None, MenuAction::About)],
-            ),
-        )]);
-
-        vec![menu_bar.into()]
+        vec![]
     }
 
     /// Enables the COSMIC application to create a nav bar with this model.
     fn nav_model(&self) -> Option<&nav_bar::Model> {
-        Some(&self.nav)
+        None
     }
 
     /// Display a context drawer if the context page is requested.
@@ -199,8 +170,8 @@ impl cosmic::Application for AppModel {
     /// events received by widgets will be passed to the update method.
     fn view(&self) -> Element<Self::Message> {
         match self.view {
-            View::Home(ref model) => model.view().map(Message::Home),
-            View::Docs(ref model) => model.view().map(Message::Docs),
+            Page::Home(ref model) => model.view().map(Message::Home),
+            Page::Docs(ref model) => model.view().map(Message::Docs),
         }
     }
 
@@ -274,13 +245,13 @@ impl cosmic::Application for AppModel {
             // CURRENT: Writing boilerplate to pass massages between the two distinctct views:
             // Home and Docs. Maybe I want to just pass around the high level cosmic::Action.
             Message::Docs(message) => {
-                if let View::Docs(ref mut model) = self.view {
+                if let Page::Docs(ref mut model) = self.view {
                     return model.update(message).map(map_action);
                 }
             }
 
             Message::Home(message) => {
-                if let View::Home(ref mut model) = self.view {
+                if let Page::Home(ref mut model) = self.view {
                     return model.update(message).map(map_action);
                 }
             }
@@ -290,21 +261,10 @@ impl cosmic::Application for AppModel {
         Task::none()
     }
 
-    fn view_window(&self, id: cosmic::iced::window::Id) -> Element<Self::Message> {
-        widget::text::title1("This is another window")
-            .apply(widget::container)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .align_x(Horizontal::Center)
-            .align_y(Vertical::Center)
-            .into()
-    }
-
     /// Called when a nav item is selected.
     fn on_nav_select(&mut self, id: nav_bar::Id) -> Task<cosmic::Action<Self::Message>> {
         // Activate the page in the model.
-        self.nav.activate(id);
-
+        // self.nav.activate(id);
         self.update_title()
     }
 }
@@ -348,24 +308,19 @@ impl AppModel {
     pub fn update_title(&mut self) -> Task<cosmic::Action<Message>> {
         let mut window_title = fl!("app-title");
 
-        if let Some(page) = self.nav.text(self.nav.active()) {
-            window_title.push_str(" — ");
-            window_title.push_str(page);
-        }
+        // if let Some(page) = self.nav.text(self.nav.active()) {
+        //     window_title.push_str(" — ");
+        //     window_title.push_str(page);
+        // }
 
-        if let Some(id) = self.core.main_window_id() {
-            self.set_window_title(window_title, id)
-        } else {
-            Task::none()
-        }
+        // if let Some(id) = self.core.main_window_id() {
+        //     self.set_window_title(window_title, id)
+        // } else {
+        //     Task::none()
+        // }
+
+        Task::none()
     }
-}
-
-/// The page to display in the application.
-pub enum Page {
-    Page1,
-    Page2,
-    Page3,
 }
 
 /// The context page to display in the context drawer.

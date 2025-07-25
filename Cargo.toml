@@ -16,6 +16,11 @@ open = "5.3.0"
 rust-embed = "8.5.0"
 tokio = { version = "1.41.0", features = ["full"] }
 icondata = { version = "0.6.0", default-features = false, features = ["simple-icons", "ant-design-icons"] }
+rustdoc-types = "0.54.0"
+serde_json = "1.0.141"
+bitcode = { version = "0.6.6", features = ["derive", "serde"] }
+cargo_metadata = "0.21.0"
+derive_more = { version = "2.0.1", features= ["from", "error"] }
 
 [dependencies.i18n-embed]
 version = "0.15"
@@ -43,7 +48,11 @@ features = [
     "wgpu",
     # Markdown
     "highlighter",
-    "markdown"
+    "markdown",
+    # File dialogs
+    "rfd",
+    # Debug features
+    "debug"
 ]
 
 # Uncomment to test a locally-cloned libcosmic
