@@ -4,6 +4,7 @@ use cosmic::iced_futures::futures::SinkExt;
 use derive_more::{Error, From};
 use std::path::PathBuf;
 use tokio::{io::AsyncBufReadExt, process::Command};
+use rustdoc_types::Id;
 
 static DOCDIR: &'static str = "/home/generic/.cosmonaute/";
 
@@ -32,6 +33,45 @@ pub struct DocSetHandle {
     name: String,
     version: String,
     language: String,
+}
+
+pub struct Documentation {
+    inner: rustdoc_types::Crate,
+    handle: DocSetHandle,
+}
+
+pub struct Module {
+    
+}
+
+
+impl Documentation {
+    fn module_items<T: AsRef<str>>(&self, path: &[T]) -> Vec<Id> {
+        todo!();
+    }
+    
+    // PERF: This is really bad. We don't need to allocate strings to compare
+    // case insensitive.
+    fn search(&self, query: &str) -> Vec<Id> {
+        let mut results = Vec::new();
+
+
+        for (id, item) in self.inner.index {
+
+        }
+        
+        ///
+        for (id, summary) in self.inner.paths {
+
+                if item.name.to_lowercase().contains(query.to_lowercase()) {
+                
+            }
+
+        }
+        
+        results
+    }
+    
 }
 
 #[derive(Debug, Error, From)]
